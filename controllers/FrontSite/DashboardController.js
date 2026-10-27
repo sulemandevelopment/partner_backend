@@ -376,6 +376,11 @@ async function buildLiveAndComingUp(userTz) {
       durationMinutes = Math.round(endUtc.diff(startUtc, "minutes", true));
     }
 
+    const {
+      estimateCaloriesFromSlot,
+    } = require("../../helper/slotSessionStats");
+    const caloriesEstimate = estimateCaloriesFromSlot(liveSlot);
+
     // Real live headcount from ClassPresence -- written by the app's own
     // join/leave calls (see classPresenceController.js). Counts users
     // currently connected (leftAt still null), not just everyone who ever
@@ -397,7 +402,7 @@ async function buildLiveAndComingUp(userTz) {
       classType: liveSlot.type,
       trainerName: trainerName.length ? trainerName : null,
       durationMinutes,
-      caloriesEstimate: null,
+      caloriesEstimate,
       level: liveSlot.level || null,
       participantCount,
       elapsedMinutes: null,
@@ -488,11 +493,21 @@ async function buildTodayCheckin(userId) {
   const dateStr = await userToday(userId);
   const row = await DailyCheckin.findOne({ where: { userId, date: dateStr } });
   if (!row) return null;
+  const { deserializeSymptoms } = require("../../helper/dailyCheckinSymptoms");
   return {
     date: row.date,
     moodLevel: row.moodLevel ?? null,
+    energyLevel: row.energyLevel ?? null,
+    stressLevel: row.stressLevel ?? null,
     sleepHours: row.sleepHours ?? null,
-    symptoms: [],
+    sleepQuality: row.sleepQuality ?? null,
+    symptoms: deserializeSymptoms(row.symptomsJson),
+    quickCheckinComplete:
+      row.moodLevel != null &&
+      row.energyLevel != null &&
+      row.stressLevel != null &&
+      row.sleepHours != null &&
+      row.sleepQuality != null,
   };
 }
 

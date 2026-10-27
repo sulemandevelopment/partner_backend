@@ -73,6 +73,18 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.ENUM('spotting', 'light', 'medium', 'heavy'),
       allowNull: true,
     },
+    stressLevel: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    stressCause: {
+      type: DataTypes.STRING(32),
+      allowNull: true,
+    },
+    symptomsJson: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
   }, {
     indexes: [
       {

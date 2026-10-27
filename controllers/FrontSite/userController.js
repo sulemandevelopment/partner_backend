@@ -6,6 +6,14 @@ const sentOtpMail = require("../../helper/sentOtpMail");
 const Sequelize = require('sequelize');
 
 const crypto = require('crypto');
+const { userToday } = require("../../helper/userDay");
+const CyclePhase = require("../../helper/CyclePhase");
+const {
+  parseSymptomsPayload,
+  serializeSymptoms,
+  ALLOWED_STRESS_CAUSES,
+  clampInt,
+} = require("../../helper/dailyCheckinSymptoms");
 
 function generateOTP() {
   return crypto.randomInt(1000, 10000).toString();
@@ -634,13 +642,13 @@ async function save_daily_checkin(req, res) {
     cyclePhase,
     predictedEnergy,
     predictedMood,
-    // Phase A — Progress symptom card. All optional; historical clients that
-    // don't send these continue to work unchanged. Validation is loose-bound
-    // (range clamp) so a typo can't poison the symptom delta engine.
     bloatingSeverity,
     crampSeverity,
     sleepQuality,
     periodFlow,
+    stressLevel,
+    stressCause,
+    symptoms,
   } = req.body;
 
   // Clamp 0–10 scales. Returns null for invalid input so the row stays
@@ -662,47 +670,108 @@ async function save_daily_checkin(req, res) {
   const cleanedCramp = clampScore(crampSeverity);
   const cleanedSleepQuality = clampScore(sleepQuality);
   const cleanedPeriodFlow = validatePeriodFlow(periodFlow);
+  const cleanedStress = clampInt(stressLevel, 1, 5);
+  let cleanedStressCause = undefined;
+  if (stressCause !== undefined) {
+    if (stressCause === null || stressCause === '') {
+      cleanedStressCause = null;
+    } else if (ALLOWED_STRESS_CAUSES.has(String(stressCause))) {
+      cleanedStressCause = String(stressCause);
+    } else {
+      cleanedStressCause = null;
+    }
+  }
+  const parsedSymptoms = parseSymptomsPayload(symptoms);
+  if (symptoms !== undefined && parsedSymptoms === null) {
+    return res.json(ApiResponse("0", "Invalid symptoms payload", {}));
+  }
+  const symptomsSerialized =
+    parsedSymptoms === undefined ? undefined : serializeSymptoms(parsedSymptoms);
+
+  const dateStr = date || (await userToday(req.user.id));
+  const todayStr = await userToday(req.user.id);
+  if (dateStr !== todayStr) {
+    return res.json(
+      ApiResponse("0", "Daily check-in can only be saved for today", {})
+    );
+  }
+
+  let autoCycleDay = cycleDay;
+  let autoCyclePhase = cyclePhase;
+  if (autoCycleDay === undefined && autoCyclePhase === undefined) {
+    try {
+      const cycleRow = await UserCycleData.findOne({
+        where: { userId: req.user.id },
+      });
+      if (cycleRow && cycleRow.lastPeriodDate && cycleRow.dataProvided === 1) {
+        const info = CyclePhase.calculate({
+          lastPeriodDate: cycleRow.lastPeriodDate,
+          averageCycleLength: cycleRow.averageCycleLength || 28,
+          today: new Date(),
+        });
+        if (info) {
+          autoCycleDay = info.cycleDay;
+          autoCyclePhase = info.phase;
+        }
+      }
+    } catch (e) {
+      console.error("[save_daily_checkin] cycle attach failed:", e.message);
+    }
+  }
 
   try {
     const [checkin, created] = await DailyCheckin.findOrCreate({
-      where: { userId: req.user.id, date: date },
+      where: { userId: req.user.id, date: dateStr },
       defaults: {
         userId: req.user.id,
-        date: date,
-        energyLevel: energyLevel || null,
-        moodLevel: moodLevel || null,
+        date: dateStr,
+        energyLevel: clampInt(energyLevel, 1, 5) ?? null,
+        moodLevel: clampInt(moodLevel, 1, 5) ?? null,
         sleepHours: sleepHours || null,
         cravingType: cravingType || null,
         note: note || null,
-        cycleDay: cycleDay || null,
-        cyclePhase: cyclePhase || null,
+        cycleDay: autoCycleDay || null,
+        cyclePhase: autoCyclePhase || null,
         predictedEnergy: predictedEnergy || null,
         predictedMood: predictedMood || null,
         bloatingSeverity: cleanedBloating === undefined ? null : cleanedBloating,
         crampSeverity: cleanedCramp === undefined ? null : cleanedCramp,
         sleepQuality: cleanedSleepQuality === undefined ? null : cleanedSleepQuality,
         periodFlow: cleanedPeriodFlow === undefined ? null : cleanedPeriodFlow,
+        stressLevel: cleanedStress === undefined ? null : cleanedStress,
+        stressCause: cleanedStressCause === undefined ? null : cleanedStressCause,
+        symptomsJson:
+          symptomsSerialized === undefined ? null : symptomsSerialized,
       },
     });
 
     if (!created) {
-      if (energyLevel !== undefined) checkin.energyLevel = energyLevel;
-      if (moodLevel !== undefined) checkin.moodLevel = moodLevel;
+      if (energyLevel !== undefined) {
+        checkin.energyLevel = clampInt(energyLevel, 1, 5);
+      }
+      if (moodLevel !== undefined) checkin.moodLevel = clampInt(moodLevel, 1, 5);
       if (sleepHours !== undefined) checkin.sleepHours = sleepHours;
       if (cravingType !== undefined) checkin.cravingType = cravingType;
       if (note !== undefined) checkin.note = note;
-      if (cycleDay !== undefined) checkin.cycleDay = cycleDay;
-      if (cyclePhase !== undefined) checkin.cyclePhase = cyclePhase;
+      if (autoCycleDay !== undefined) checkin.cycleDay = autoCycleDay;
+      if (autoCyclePhase !== undefined) checkin.cyclePhase = autoCyclePhase;
       if (predictedEnergy !== undefined) checkin.predictedEnergy = predictedEnergy;
       if (predictedMood !== undefined) checkin.predictedMood = predictedMood;
       if (cleanedBloating !== undefined) checkin.bloatingSeverity = cleanedBloating;
       if (cleanedCramp !== undefined) checkin.crampSeverity = cleanedCramp;
       if (cleanedSleepQuality !== undefined) checkin.sleepQuality = cleanedSleepQuality;
       if (cleanedPeriodFlow !== undefined) checkin.periodFlow = cleanedPeriodFlow;
+      if (cleanedStress !== undefined) checkin.stressLevel = cleanedStress;
+      if (cleanedStressCause !== undefined) checkin.stressCause = cleanedStressCause;
+      if (symptomsSerialized !== undefined) {
+        checkin.symptomsJson = symptomsSerialized;
+      }
       await checkin.save();
     }
 
-    const response = ApiResponse("1", "Daily check-in saved", { checkin });
+    const payload = checkin.toJSON();
+    payload.symptoms = parsedSymptoms ?? [];
+    const response = ApiResponse("1", "Daily check-in saved", { checkin: payload });
     return res.json(response);
   } catch (error) {
     const response = ApiResponse("0", error.message, {});
@@ -719,8 +788,14 @@ async function get_daily_checkin(req, res) {
     }
 
     const checkin = await DailyCheckin.findOne({ where: { userId: req.user.id, date: date } });
+    if (!checkin) {
+      return res.json(ApiResponse("1", "Daily check-in", null));
+    }
+    const payload = checkin.toJSON();
+    const { deserializeSymptoms } = require("../../helper/dailyCheckinSymptoms");
+    payload.symptoms = deserializeSymptoms(checkin.symptomsJson);
 
-    const response = ApiResponse("1", "Daily check-in", checkin);
+    const response = ApiResponse("1", "Daily check-in", payload);
     return res.json(response);
   } catch (error) {
     const response = ApiResponse("0", error.message, {});
