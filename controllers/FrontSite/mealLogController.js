@@ -1,6 +1,7 @@
 const { Op } = require("sequelize");
 const ApiResponse = require("../../helper/ApiResponse");
-const { MealLog } = require("../../models");
+const { MealLog, PreConsultationProfile } = require("../../models");
+const { evaluateFoodAgainstProfile } = require("../../helper/foodProfileFilter");
 
 // Phase F.2 — kept in lockstep with services/ai/constants/mealTemplates.js
 // VALID_MEAL_TYPES on the AI service. Migration 20260508120000 extends
@@ -157,8 +158,33 @@ exports.upsertMealLog = async (req, res) => {
       await row.update(updates);
     }
 
+    let foodProfileWarnings = [];
+    const checkName =
+      status === "alternative" && alternativeText ? alternativeText : null;
+    if (checkName) {
+      const profile = await PreConsultationProfile.findOne({ where: { userId } });
+      if (profile) {
+        let prefs = profile.dietaryPreferences;
+        if (typeof prefs === "string" && prefs.trim()) {
+          try {
+            prefs = JSON.parse(prefs);
+          } catch (_) {
+            prefs = [];
+          }
+        }
+        const evalResult = evaluateFoodAgainstProfile(checkName, {
+          allergies: profile.allergies,
+          dietaryPreferences: Array.isArray(prefs) ? prefs : [],
+        });
+        if (!evalResult.allowed) foodProfileWarnings = evalResult.conflicts;
+      }
+    }
+
     return res.json(
-      ApiResponse("1", "Meal log saved", { mealLog: rowToWire(row) })
+      ApiResponse("1", "Meal log saved", {
+        mealLog: rowToWire(row),
+        foodProfileWarnings,
+      })
     );
   } catch (err) {
     console.error("[mealLog] upsertMealLog:", err);

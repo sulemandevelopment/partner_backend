@@ -43,6 +43,7 @@ const preConsultationRoutes = require('./routes/FrontSite/preConsultation')
 const preConsultationAdminRoutes = require('./routes/Admin/preConsultation')
 const popupStateRoutes = require('./routes/FrontSite/popupState')
 const mealLogRoutes = require('./routes/FrontSite/mealLog')
+const foodProfileRoutes = require('./routes/FrontSite/foodProfile')
 const day7ReviewRoutes = require('./routes/FrontSite/day7Review')
 const day7ReviewAdminRoutes = require('./routes/Admin/day7Review')
 const progressSubmissionRoutes = require('./routes/FrontSite/progressSubmission')
@@ -633,6 +634,7 @@ app.use('/users/pre-consultation', preConsultationRoutes);
 app.use('/admin/pre-consultation', preConsultationAdminRoutes);
 app.use('/users/popup', popupStateRoutes);
 app.use('/users/meal-logs', mealLogRoutes);
+app.use('/users/food-profile', foodProfileRoutes);
 app.use('/users/day7-review', day7ReviewRoutes);
 app.use('/admin/day7-reviews', day7ReviewAdminRoutes);
 app.use('/users/progress', progressSubmissionRoutes);
