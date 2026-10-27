@@ -109,6 +109,7 @@ async function buildCycleAndPhase(userId) {
 
   const length = row.averageCycleLength || 28;
   const periodInDays = Math.max(0, length - info.cycleDay);
+  const { periodWhatToExpect } = require("../../helper/periodWhatToExpect");
 
   const cycle = {
     dataProvided: true,
@@ -117,6 +118,7 @@ async function buildCycleAndPhase(userId) {
     phaseLabel: PHASE_LABELS[info.phase] || "Follicular Phase",
     periodInDays,
     averageCycleLength: length,
+    expectNote: periodWhatToExpect({ phase: info.phase, periodInDays }),
   };
   return { cycle, phase: info.phase };
 }

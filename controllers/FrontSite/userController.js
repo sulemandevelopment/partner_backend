@@ -637,6 +637,7 @@ async function save_daily_checkin(req, res) {
     moodLevel,
     sleepHours,
     cravingType,
+    appetiteLevel,
     note,
     cycleDay,
     cyclePhase,
@@ -649,6 +650,10 @@ async function save_daily_checkin(req, res) {
     stressLevel,
     stressCause,
     symptoms,
+    digestionLevel,
+    supplementLog,
+    skinStatus,
+    hairStatus,
   } = req.body;
 
   // Clamp 0–10 scales. Returns null for invalid input so the row stays
@@ -681,6 +686,21 @@ async function save_daily_checkin(req, res) {
       cleanedStressCause = null;
     }
   }
+  const { cleanAppetiteLevel, cleanCravingType } = require("../../helper/appetiteCraving");
+  const {
+    SKIN,
+    HAIR,
+    cleanScore15,
+    cleanEnum,
+    cleanShortText,
+  } = require("../../helper/bodyLog");
+  const cleanedAppetite = cleanAppetiteLevel(appetiteLevel);
+  const cleanedCraving = cleanCravingType(cravingType);
+  const cleanedDigestion = cleanScore15(digestionLevel);
+  const cleanedSupplement = cleanShortText(supplementLog);
+  const cleanedSkin = cleanEnum(skinStatus, SKIN);
+  const cleanedHair = cleanEnum(hairStatus, HAIR);
+
   const parsedSymptoms = parseSymptomsPayload(symptoms);
   if (symptoms !== undefined && parsedSymptoms === null) {
     return res.json(ApiResponse("0", "Invalid symptoms payload", {}));
@@ -728,7 +748,8 @@ async function save_daily_checkin(req, res) {
         energyLevel: clampInt(energyLevel, 1, 5) ?? null,
         moodLevel: clampInt(moodLevel, 1, 5) ?? null,
         sleepHours: sleepHours || null,
-        cravingType: cravingType || null,
+        cravingType: cleanedCraving === undefined ? null : cleanedCraving,
+        appetiteLevel: cleanedAppetite === undefined ? null : cleanedAppetite,
         note: note || null,
         cycleDay: autoCycleDay || null,
         cyclePhase: autoCyclePhase || null,
@@ -742,6 +763,10 @@ async function save_daily_checkin(req, res) {
         stressCause: cleanedStressCause === undefined ? null : cleanedStressCause,
         symptomsJson:
           symptomsSerialized === undefined ? null : symptomsSerialized,
+        digestionLevel: cleanedDigestion === undefined ? null : cleanedDigestion,
+        supplementLog: cleanedSupplement === undefined ? null : cleanedSupplement,
+        skinStatus: cleanedSkin === undefined ? null : cleanedSkin,
+        hairStatus: cleanedHair === undefined ? null : cleanedHair,
       },
     });
 
@@ -751,7 +776,8 @@ async function save_daily_checkin(req, res) {
       }
       if (moodLevel !== undefined) checkin.moodLevel = clampInt(moodLevel, 1, 5);
       if (sleepHours !== undefined) checkin.sleepHours = sleepHours;
-      if (cravingType !== undefined) checkin.cravingType = cravingType;
+      if (cleanedCraving !== undefined) checkin.cravingType = cleanedCraving;
+      if (cleanedAppetite !== undefined) checkin.appetiteLevel = cleanedAppetite;
       if (note !== undefined) checkin.note = note;
       if (autoCycleDay !== undefined) checkin.cycleDay = autoCycleDay;
       if (autoCyclePhase !== undefined) checkin.cyclePhase = autoCyclePhase;
@@ -766,6 +792,10 @@ async function save_daily_checkin(req, res) {
       if (symptomsSerialized !== undefined) {
         checkin.symptomsJson = symptomsSerialized;
       }
+      if (cleanedDigestion !== undefined) checkin.digestionLevel = cleanedDigestion;
+      if (cleanedSupplement !== undefined) checkin.supplementLog = cleanedSupplement;
+      if (cleanedSkin !== undefined) checkin.skinStatus = cleanedSkin;
+      if (cleanedHair !== undefined) checkin.hairStatus = cleanedHair;
       await checkin.save();
     }
 
@@ -919,7 +949,7 @@ async function get_notification_preferences(req, res) {
 async function save_notification_preferences(req, res) {
   const {
     morningNudge, classPrep, classStart,
-    missedRecovery, trainerCancelled, weeklyCheckin,
+    missedRecovery, trainerCancelled, weeklyCheckin, dailyLog,
     quietStart, quietEnd, timeBlock
   } = req.body;
 
@@ -937,6 +967,7 @@ async function save_notification_preferences(req, res) {
     if (missedRecovery !== undefined) prefs.missedRecovery = missedRecovery;
     if (trainerCancelled !== undefined) prefs.trainerCancelled = trainerCancelled;
     if (weeklyCheckin !== undefined) prefs.weeklyCheckin = weeklyCheckin;
+    if (dailyLog !== undefined) prefs.dailyLog = dailyLog;
     if (quietStart !== undefined) prefs.quietStart = quietStart;
     if (quietEnd !== undefined) prefs.quietEnd = quietEnd;
     if (timeBlock !== undefined && validTimeBlocks.includes(timeBlock)) {

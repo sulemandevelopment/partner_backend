@@ -169,6 +169,109 @@ async function getSymptoms(req, res) {
   return res.json(ApiResponse('1', 'ok', data));
 }
 
+// ───────── 2NH10: GET /users/progress/weekly-pattern ────────────────────
+
+async function getWeeklyPattern(req, res) {
+  const userId = authedUserId(req);
+  if (!userId) return res.json(ApiResponse('0', 'Unauthorized', {}));
+  const { DailyCheckin, MealLog } = require('../../models');
+  const { Op } = require('sequelize');
+  const {
+    buildWeeklySymptomPattern,
+    buildWeeklyProgressSummary,
+  } = require('../../helper/weeklySymptomPattern');
+
+  const end = new Date();
+  const start = new Date(end);
+  start.setDate(end.getDate() - 6);
+  const fmt = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  try {
+    const rows = await DailyCheckin.findAll({
+      where: {
+        userId,
+        date: { [Op.between]: [fmt(start), fmt(end)] },
+      },
+      order: [['date', 'ASC']],
+    });
+    const pattern = buildWeeklySymptomPattern(rows.map((r) => r.toJSON()));
+    let mealsLogged = null;
+    try {
+      mealsLogged = await MealLog.count({
+        where: { userId, date: { [Op.between]: [fmt(start), fmt(end)] } },
+      });
+    } catch (e) {
+      mealsLogged = null;
+    }
+    const summary = buildWeeklyProgressSummary(pattern, { mealsLogged });
+    return res.json(ApiResponse('1', 'Weekly symptom pattern', {
+      from: fmt(start),
+      to: fmt(end),
+      ...pattern,
+      summaryLines: summary.lines,
+    }));
+  } catch (err) {
+    console.error('ProgressController.getWeeklyPattern', err);
+    return res.json(ApiResponse('0', 'Could not build weekly pattern', {}));
+  }
+}
+
+// ───────── 2NH13: GET /users/progress/monthly-report ────────────────────
+
+function formatLocalDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+async function getMonthlyReport(req, res) {
+  const userId = authedUserId(req);
+  if (!userId) return res.json(ApiResponse('0', 'Unauthorized', {}));
+  const { DailyCheckin, MealLog } = require('../../models');
+  const { Op } = require('sequelize');
+  const { buildMonthlyBodyReport } = require('../../helper/monthlyBodyReport');
+
+  const end = new Date();
+  const start = new Date(end);
+  start.setDate(end.getDate() - 29);
+
+  try {
+    const rows = await DailyCheckin.findAll({
+      where: {
+        userId,
+        date: { [Op.between]: [formatLocalDate(start), formatLocalDate(end)] },
+      },
+      order: [['date', 'ASC']],
+    });
+    let mealsLogged = null;
+    try {
+      mealsLogged = await MealLog.count({
+        where: {
+          userId,
+          date: { [Op.between]: [formatLocalDate(start), formatLocalDate(end)] },
+        },
+      });
+    } catch (e) {
+      mealsLogged = null;
+    }
+    const report = buildMonthlyBodyReport(rows.map((r) => r.toJSON()), { mealsLogged });
+    return res.json(ApiResponse('1', 'Monthly body report', {
+      from: formatLocalDate(start),
+      to: formatLocalDate(end),
+      ...report,
+    }));
+  } catch (err) {
+    console.error('ProgressController.getMonthlyReport', err);
+    return res.json(ApiResponse('0', 'Could not build monthly report', {}));
+  }
+}
+
 // ───────── B8: GET /users/progress/insights/hub ─────────────────────────
 
 async function getInsightsHub(req, res) {
@@ -196,6 +299,8 @@ module.exports = {
   getGlance,
   getHydration,
   getSymptoms,
+  getWeeklyPattern,
+  getMonthlyReport,
   getInsightsHub,
   // Re-exported so app.js / tests can confirm the allow-list at boot.
   ALLOWED_PERIODS,

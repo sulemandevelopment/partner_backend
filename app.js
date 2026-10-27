@@ -97,6 +97,7 @@ const { autoUnfreezeExpiredPlans } = require("./helper/autoUnfreezeExpiredPlans"
 const { sendPlanDeliveryReminders } = require("./helper/planDeliveryReminders");
 const { sendTrialClassReminders } = require("./helper/trialClasses");
 const { sendTrialOfferReminders } = require("./helper/trialOffer");
+const { sendSubscriptionTrialReminders } = require("./helper/subscriptionTrialReminder");
 const { sendPostpartumReadyReminders, sendDueDateCheckIns } = require("./helper/lifeStage");
 const { autoExpireUserPlans } = require("./helper/autoExpireUserPlans");
 const { sendMissedSessionRecovery } = require("./helper/missedSessionRecovery");
@@ -588,6 +589,20 @@ cron.schedule(
   { timezone: CRON_TZ }
 );
 
+// 1P8 — one reminder in the last day of a plan-page subscription trial.
+cron.schedule(
+  "0 18 * * *",
+  async () => {
+    try {
+      const result = await sendSubscriptionTrialReminders();
+      if (result.sent) console.log(`[subscription-trial] reminders ${result.sent}`);
+    } catch (error) {
+      console.error("[subscription-trial] reminder failed:", error);
+    }
+  },
+  { timezone: CRON_TZ }
+);
+
 // Weekly check-in reminder — Sunday 19:00 PKT.
 // Nudges active users (status=true) who haven't submitted a WeeklyCheckin
 // this ISO week yet. Gated by NotificationPreference.weeklyCheckin (default on).
@@ -635,6 +650,8 @@ app.use('/admin/pre-consultation', preConsultationAdminRoutes);
 app.use('/users/popup', popupStateRoutes);
 app.use('/users/meal-logs', mealLogRoutes);
 app.use('/users/food-profile', foodProfileRoutes);
+app.use('/users/subscription-trial', require('./routes/FrontSite/subscriptionTrial'));
+app.use('/users/exercises', require('./routes/FrontSite/exercises'));
 app.use('/users/day7-review', day7ReviewRoutes);
 app.use('/admin/day7-reviews', day7ReviewAdminRoutes);
 app.use('/users/progress', progressSubmissionRoutes);
@@ -648,6 +665,7 @@ app.use('/admin/support-tickets', supportTicketAdminRoutes);
 app.use('/admin/metrics', metricsAdminRoutes);
 app.use('/trial', trialRoutes);
 app.use('/admin/diet-plan', dietPlanAdminRoutes);
+app.use('/admin/exercises', require('./routes/Admin/exercises'));
 app.use('/users/diet-plan', dietPlanUserRoutes);
 
 // Error middleware : To show any error if promise fails

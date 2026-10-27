@@ -29,6 +29,11 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: true,
     },
+    // 2NH5 — 1 (low) to 5 (strong) appetite. Separate from cravingType.
+    appetiteLevel: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
     note: {
       type: DataTypes.STRING,
       allowNull: true,
@@ -83,6 +88,22 @@ module.exports = (sequelize, DataTypes) => {
     },
     symptomsJson: {
       type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    digestionLevel: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    supplementLog: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    skinStatus: {
+      type: DataTypes.STRING(32),
+      allowNull: true,
+    },
+    hairStatus: {
+      type: DataTypes.STRING(32),
       allowNull: true,
     },
   }, {

@@ -40,6 +40,12 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       defaultValue: 1,
     },
+    // 1NH15 — daily check-in reminder. Default on; quiet hours still apply.
+    dailyLog: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 1,
+    },
     quietStart: {
       type: DataTypes.STRING,
       allowNull: false,

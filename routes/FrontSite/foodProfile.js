@@ -7,5 +7,6 @@ const ctrl = require("../../controllers/FrontSite/foodProfileController");
 
 router.get("/", validateToken, asyncMiddleware(ctrl.getFoodProfile));
 router.post("/check", validateToken, asyncMiddleware(ctrl.checkFood));
+router.post("/phase-score", validateToken, asyncMiddleware(ctrl.scoreFoodPhase));
 
 module.exports = router;

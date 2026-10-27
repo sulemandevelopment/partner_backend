@@ -1,5 +1,6 @@
 const ApiResponse = require("../../helper/ApiResponse");
 const { createEscalation } = require("../../helper/escalation");
+const { day7UserNote } = require("../../helper/day7UserNote");
 const {
   Day7Review,
   PendingPopupState,
@@ -191,8 +192,12 @@ exports.submitReview = async (req, res) => {
       console.error("[day7Review] popup state update failed:", e);
     }
 
+    const reviewJson = review.toJSON();
     return res.json(
-      ApiResponse("1", "Review submitted", { review: review.toJSON() })
+      ApiResponse("1", "Review submitted", {
+        review: reviewJson,
+        userNote: day7UserNote(review.flagged),
+      })
     );
   } catch (err) {
     console.error("[day7Review] submitReview:", err);

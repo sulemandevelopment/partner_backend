@@ -59,6 +59,10 @@ const REENGAGEMENT_TYPES = {
   // Weekly check-in reminder — Sunday 19:00 PKT
   // Gated by its own weeklyCheckin pref column, independent of morningNudge.
   weeklyCheckin:       { prefKey: 'weeklyCheckin', channel: 'weeklyCheckin' },
+
+  // 1NH15 — local daily log reminder. Pref is stored here so the toggle
+  // syncs; the phone schedules it (see NotificationScheduler).
+  dailyLog:            { prefKey: 'dailyLog', channel: 'dailyLog' },
 };
 
 /**

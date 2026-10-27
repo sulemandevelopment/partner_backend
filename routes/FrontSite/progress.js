@@ -19,6 +19,8 @@ router.get('/weight',         validateToken, asyncMiddleware(ProgressController.
 router.get('/glance',         validateToken, asyncMiddleware(ProgressController.getGlance));
 router.get('/hydration',      validateToken, asyncMiddleware(ProgressController.getHydration));
 router.get('/symptoms',       validateToken, asyncMiddleware(ProgressController.getSymptoms));
+router.get('/weekly-pattern', validateToken, asyncMiddleware(ProgressController.getWeeklyPattern));
+router.get('/monthly-report', validateToken, asyncMiddleware(ProgressController.getMonthlyReport));
 router.get('/insights/hub',   validateToken, asyncMiddleware(ProgressController.getInsightsHub));
 
 module.exports = router;
