@@ -20,9 +20,9 @@ const { validateAdmin } = require("../../middlewares/ValidateAdmin");
 
 // // Delete an appointment by ID (requires authentication)
 // router.delete('/:id', authenticate, appointmentController.deleteAppointment);
- router.get("/rescheduled/appointments/:reschedule/:dietitianId", appointmentController.getAllRescheduledAppointments);
+ router.get("/rescheduled/appointments/:reschedule/:dietitianId", validateToken, validateAdmin, appointmentController.getAllRescheduledAppointments);
 
- router.get("/status", appointmentController.getAllAppointmentStatus);
+ router.get("/status", validateToken, validateAdmin, appointmentController.getAllAppointmentStatus);
 
 // User-facing counterpart to /dietAppointments/:id below — the caller's
 // own current active booking, for the Diet tab's "your booked
@@ -30,13 +30,13 @@ const { validateAdmin } = require("../../middlewares/ValidateAdmin");
  router.get("/me/current", validateToken, consultationBookingController.getMyCurrentAppointment);
 
 // Route to get all appointments
- router.get("/dietAppointments/:id", appointmentController.getAllAppointments);
+ router.get("/dietAppointments/:id", validateToken, validateAdmin, appointmentController.getAllAppointments);
 
 // Route to get an appointment by ID
- router.get("/:id", appointmentController.getAppointmentById);
+ router.get("/:id", validateToken, appointmentController.getAppointmentById);
 
 // Route to create a new appointment
- router.post("/", appointmentController.createAppointment);
+ router.post("/", validateToken, appointmentController.createAppointment);
 
 // Route to flip confirmed → In Progress when the dietitian starts the session
  router.post("/:id/start", validateToken, validateAdmin, appointmentController.startAppointment);
@@ -65,6 +65,6 @@ router.post("/:id/client-no-show", validateToken, consultationBookingController.
  router.put("/:id", validateToken, validateAdmin, appointmentController.updateAppointment);
 
 // Route to delete an appointment
- router.delete("/:id", appointmentController.deleteAppointment);
+ router.delete("/:id", validateToken, validateAdmin, appointmentController.deleteAppointment);
 
 module.exports = router;

@@ -25,6 +25,16 @@ const { Op } = require("sequelize");
 exports.getAllAppointments = async (req, res) => {
   try {
     const { id } = req.params;
+    const callerId = req.user && req.user.id;
+    if (!callerId) {
+      return res.status(401).json(ApiResponse("0", "Unauthorized", {}));
+    }
+    if (
+      req.user.userType === "Dietition" &&
+      Number(id) !== Number(callerId)
+    ) {
+      return res.status(403).json(ApiResponse("0", "Forbidden", {}));
+    }
     const includeAll = req.query.includeAll === "true";
     const where = includeAll
       ? { dietitionId: id }
@@ -108,6 +118,9 @@ exports.getAllAppointmentStatus = async (req, res) => {
 // Get a specific appointment by ID
 exports.getAppointmentById = async (req, res) => {
   try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json(ApiResponse("0", "Unauthorized", {}));
+    }
     const { id } = req.params;
     const appointment = await Appointment.findByPk(id, {
       include: [
@@ -119,6 +132,17 @@ exports.getAppointmentById = async (req, res) => {
       const response = ApiResponse("0", "Appointment not found", {});
       return res.status(404).json(response);
     }
+    const callerId = Number(req.user.id);
+    const caller = await User.findByPk(callerId, { attributes: ["id", "userType"] });
+    const isClient = appointment.userId === callerId;
+    const isDietitian =
+      caller &&
+      caller.userType === "Dietition" &&
+      Number(appointment.dietitionId) === callerId;
+    const isStaff = caller && caller.userType !== "User";
+    if (!isClient && !isDietitian && !isStaff) {
+      return res.status(403).json(ApiResponse("0", "Forbidden", {}));
+    }
     const response = ApiResponse("1", "Appointment fetched successfully", appointment);
     return res.status(200).json(response);
   } catch (error) {
@@ -129,7 +153,13 @@ exports.getAppointmentById = async (req, res) => {
 
 // Create a new appointment
 exports.createAppointment = async (req, res) => {
+  if (!req.user || !req.user.id) {
+    return res.status(401).json(ApiResponse("0", "Unauthorized", {}));
+  }
   const { date, userId, dietitionId, timeSlotId, userPlanId, kind, message } = req.body;
+  if (Number(userId) !== Number(req.user.id)) {
+    return res.status(403).json(ApiResponse("0", "You can only book for your own account", {}));
+  }
   // Optional note from the client for the dietitian (fits the 255 char column).
   const userNote = typeof message === "string" && message.trim() ? message.trim().slice(0, 250) : null;
   if (!date || !userId || !dietitionId || !timeSlotId || !userPlanId) {
